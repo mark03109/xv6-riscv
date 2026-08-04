@@ -12,13 +12,13 @@ System call `wait(int *)` is for a father process to be awaked by a exited or ki
 
 System call `exec(const char*, char**)` is to load a new program into this process, which means the instruction, data, stack parts in the main mememoty is totally replaced.
 `const char* ` is the file name(pwd) of the new program, and the `char**` is passed to the `main(int argc, char* argv[])`of the new program.
-Attetion that the rest part of the replaced process will not be executed if the function `exec()` succedded
+Attetion that the rest part of the replaced process will not be executed if the function `exec()` succeeded
 
 ### I/O and File description 
 
 File descriptor is the index of a particular file.
 In Unix/Linux, we can't just `write("hello.txt", "abc", 3)`; Instead, we need first do `int fd = open("hello.txt", O_WRONLY);`, then `write(fd, "hello", 5);`.
-When each process starts, it opens 3 file descriptor by default. `fd = 0/1/2`, indicates stdin, stdout, stderr.
+When each process starts, it opens 3 file descriptor by default. `fd = 0/1/2`, indicates "stdin, stdout, stderr".
 
 System calls `int write(int fd, char* buf, int n)` and `int read(int fd, char* buf, int n)` can be now easily understood; They return the number of bytes that are successfully read or written.
 
