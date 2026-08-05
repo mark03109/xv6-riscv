@@ -61,5 +61,59 @@ void
 memdump(char *fmt, char *data)
 {
   // Your code here.
-
+  int i = 0;
+  int j = 0;
+  while(fmt[i]){
+    if(fmt[i] == 'i'){
+      int ret = 0;
+      ret += data[j+3];
+      for(int k = 2; k >= 0; k--){
+        ret <<= 8;
+        ret += data[j+k];
+      }
+      j+=4;
+      printf("%d\n", ret);
+    }
+    else if(fmt[i] == 'p'){
+      long long ret = 0;
+      ret += (unsigned char)data[j+7];
+      for(int k = 6; k >= 0; k--){
+        ret <<= 8;
+        ret += (unsigned char)data[j+k];
+      }
+      j+=8;
+      printf("%p\n", (void*)ret);
+    }
+    else if(fmt[i] == 'h'){
+      short ret = 0;
+      ret += data[j+1];
+      for(int k = 0; k >= 0; k--){
+        ret <<= 8;
+        ret += data[j+k];
+      }
+      j+=2;
+      printf("%d\n", ret);
+    }
+    else if(fmt[i] == 'c'){
+      printf("%c\n", data[j]);
+      j+=1;
+    }
+    else if(fmt[i] == 's'){
+      char ret[9] = {'\0'};
+      char *str = *(char **)(data+j);
+      for(int k = 0 ; k < 8; k++){
+        ret[k] = *str;
+        str += sizeof(char);
+      }
+      printf("%s\n", ret);
+      j+=8;
+    }
+    else if(fmt[i] == 'S'){
+      int k = 0;
+      while(data[j+(k++)] != '\0');
+      printf("%s\n", &data[j]);
+      j+=k;
+    }
+    i++;
+  }
 }
