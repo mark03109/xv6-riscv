@@ -20,3 +20,8 @@ vscode直接打开wsl的文件夹，会遇到windows环境和linux环境冲突�
 
 如何理解xv6的cwd
 - shell本身作为用户进程，就有自己的目录项，当你在其中输入一个程序执行时，会fork进程，继承shell此时的目录项
+
+## exec(moderate)
+如何理解xv6的exec
+- `exec(char*, char**)`函数第一个参数传入程序的名称，第二个参数传入参数数组(注意第一个参数是程序名称，不要省略）
+- exec前需要fork新进程执行
