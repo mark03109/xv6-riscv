@@ -68,7 +68,7 @@ System call `mknod(const char* pos, int major, int minor)` creates a file refers
 
 The file name isn't the file itself
 The same underlying file, called an inode, can have multiple names, called links. Each link of the same file contains a file name and a reference to an inode.
-System call `fstat(int fd, struct stat* stat)` retrieves information from the inode that a fd refers to and save the information to stat.
+System call `fstat(int fd, struct stat* stat)` retrieves information from the inode that a fd refers to and save the information to stat. stat can be seen as a snapshot.
 `struct stat` defined as:
 
 ```c
