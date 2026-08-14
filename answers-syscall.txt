@@ -1,0 +1,8 @@
+1.usertap()
+2.15;启动xv6时，会运行shell程序，shell程序第一个经过的系统调用是open(console)，保存在trapframe中，trapframe的a7寄存器中
+    ，查看其寄存器的值为15，刚好对用open系统调用的编号。
+3.usermode。sstatus为0x200000022，bit8为0，所以前一模式是 U-mode。
+5.num = *(int *)0;
+    80001cf8:	00002683          	lw	a3,0(zero) # 0 <_entry-0x80000000>
+6.虚拟地址0不在页表映射中。scause=13表示load access fault加载访问错误
+7.init程序 pid为1
