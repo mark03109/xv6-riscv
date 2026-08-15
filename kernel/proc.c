@@ -299,6 +299,9 @@ kfork(void)
   np->state = RUNNABLE;
   release(&np->lock);
 
+  np->sandbox_enabled = p->sandbox_enabled;
+  np->sandbox_mask = p->sandbox_mask;
+
   return pid;
 }
 
