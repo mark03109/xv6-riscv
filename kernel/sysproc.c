@@ -111,8 +111,11 @@ sys_interpose(void)
 {
   int mask;
   argint(0, &mask);
+  char buf[MAXPATH];
+  argstr(1, buf, MAXPATH);
   struct proc* p = myproc();
   p->sandbox_enabled = 1;
   p->sandbox_mask = mask;
+  strncpy(p->sandbox_path, buf, MAXPATH);
   return 0;
 }

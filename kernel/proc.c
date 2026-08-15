@@ -301,6 +301,7 @@ kfork(void)
 
   np->sandbox_enabled = p->sandbox_enabled;
   np->sandbox_mask = p->sandbox_mask;
+  strncpy(np->sandbox_path, p->sandbox_path, MAXPATH);
 
   return pid;
 }

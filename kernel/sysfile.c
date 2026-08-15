@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "syscall.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -309,12 +310,21 @@ sys_open(void)
   struct file *f;
   struct inode *ip;
   int n;
+  struct proc* p = myproc();
 
   argint(1, &omode);
   if((n = argstr(0, path, MAXPATH)) < 0)
     return -1;
 
   begin_op();
+
+  if(p->sandbox_enabled){
+    if(p->sandbox_mask >> SYS_open){
+      if(strncmp(p->sandbox_path, path, MAXPATH)){
+        return -1;
+      }
+    }
+  }
 
   if(omode & O_CREATE){
     ip = create(path, T_FILE, 0, 0);
@@ -437,6 +447,15 @@ sys_exec(void)
   char path[MAXPATH], *argv[MAXARG];
   int i;
   uint64 uargv, uarg;
+  struct proc* p = myproc();
+
+  if(p->sandbox_enabled){
+    if((p->sandbox_mask >> SYS_exec & 1)){
+      if(strncmp(p->sandbox_path, path, MAXPATH)){
+        return -1;
+      }
+    }
+  }
 
   argaddr(1, &uargv);
   if(argstr(0, path, MAXPATH) < 0) {
