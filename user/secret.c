@@ -19,6 +19,7 @@ main(int argc, char *argv[])
 
   strcpy(data + 16, argv[1]);
 
-  exit(0);
+  exit(0);//exit经历的kfree/kalloc里的填垃圾值的代码被条件编译关掉了
+
 }
 
