@@ -167,7 +167,7 @@ sbrklazy(int n) {
 int
 ugetpid(void)
 {
-  struct usyscall *u = (struct usyscall *)USYSCALL;
+  struct usyscall *u = (struct usyscall *)USYSCALL;//USYSCALL是usyscall段的起始地址，强制转换为stuct*类型
   return u->pid;
 }
 #endif
