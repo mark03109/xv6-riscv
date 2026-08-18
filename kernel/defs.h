@@ -66,6 +66,10 @@ void            ireclaim(int);
 void*           kalloc(void);
 void            kfree(void *);
 void            kinit(void);
+#ifdef LAB_PGTBL
+void*           superalloc(void);
+void            superfree(void *);
+#endif
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -108,6 +112,10 @@ void            yield(void);
 int             either_copyout(int user_dst, uint64 dst, void *src, uint64 len);
 int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
+#ifdef LAB_PGTBL
+pte_t *         superwalk(pagetable_t, uint64, int, int*);
+#endif
+
 
 // swtch.S
 void            swtch(struct context*, struct context*);
