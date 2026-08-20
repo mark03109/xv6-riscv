@@ -1,0 +1,9 @@
+RISC-V assembly
+1.  a2 holds 13 in main's call to printf
+2.  call to f(8)+1 is calculated by the compilor to 12
+    call to g is inlined in f
+3.  0x6f6
+4.  HE110 World
+    i 0x726c6400
+    no need
+5.  printf()函数会打印寄存器参数的垃圾值
