@@ -62,7 +62,7 @@ void
 acquire(struct spinlock *lk)
 {
   push_off(); // disable interrupts to avoid deadlock.
-  if(holding(lk))
+  if(holding(lk))// if mycpu is holding the lock 
     panic("acquire");
 
 #ifdef LAB_LOCK
@@ -74,6 +74,9 @@ acquire(struct spinlock *lk)
   //   s1 = &lk->locked
   //   amoswap.w.aq a5, a5, (s1)
   while(__sync_lock_test_and_set(&lk->locked, 1) != 0) {
+    //__sync.. returns to the old value of lk-locked
+    //so if the old value is 0, it will turn to 1, and returns 0 to break the loop
+    //if the old value is 1, it will return 1 to continue the waiting loop
 #ifdef LAB_LOCK
     __sync_fetch_and_add(&(lk->nts), 1);
 #else
@@ -96,6 +99,7 @@ void
 release(struct spinlock *lk)
 {
   if(!holding(lk))
+  //If mycpu is not holding this lk,it doesn't have the right to release it
     panic("release");
 
   lk->cpu = 0;
