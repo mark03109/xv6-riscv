@@ -128,29 +128,59 @@ release(struct spinlock *lk)
 static void
 read_acquire_inner(struct rwspinlock *rwlk)
 {
-  // Replace this with your implementation.
-  acquire(&rwlk->l);
+  acquire(&rwlk->z);
+  // r and w are acquired/released by *different* CPUs (first reader takes w,
+  // last reader drops w; first writer takes r, last writer drops r). xv6's
+  // acquire()/release() assert holding() == "same cpu", so use the raw atomic
+  // primitives here instead.
+  while(__sync_lock_test_and_set(&rwlk->r.locked, 1) != 0)
+    ;
+  acquire(&rwlk->x);
+  rwlk->readcount++;
+  if(rwlk->readcount == 1){
+    while(__sync_lock_test_and_set(&rwlk->w.locked, 1) != 0)
+      ;
+  }
+  release(&rwlk->x);
+  __sync_lock_release(&rwlk->r.locked);
+  release(&rwlk->z);
 }
 
 static void
 read_release_inner(struct rwspinlock *rwlk)
 {
-  // Replace this with your implementation.
-  release(&rwlk->l);
+  acquire(&rwlk->x);
+  rwlk->readcount--;
+  if(rwlk->readcount == 0){
+    __sync_lock_release(&rwlk->w.locked);
+  }
+  release(&rwlk->x);
 }
 
 static void
 write_acquire_inner(struct rwspinlock *rwlk)
 {
-  // Replace this with your implementation.
-  acquire(&rwlk->l);
+  acquire(&rwlk->y);
+  rwlk->writecount++;
+  if(rwlk->writecount == 1){
+    while(__sync_lock_test_and_set(&rwlk->r.locked, 1) != 0)
+      ;
+  }
+  release(&rwlk->y);
+  while(__sync_lock_test_and_set(&rwlk->w.locked, 1) != 0)
+    ;
 }
 
 static void
 write_release_inner(struct rwspinlock *rwlk)
 {
-  // Replace this with your implementation.
-  release(&rwlk->l);
+  __sync_lock_release(&rwlk->w.locked);
+  acquire(&rwlk->y);
+  rwlk->writecount--;
+  if(rwlk->writecount == 0){
+    __sync_lock_release(&rwlk->r.locked);
+  }
+  release(&rwlk->y);
 }
 
 void
@@ -185,7 +215,13 @@ void
 initrwlock(struct rwspinlock *rwlk)
 {
   // Replace this with your implementation.
-  initlock(&rwlk->l, "rwlk");
+  initlock(&rwlk->w, "rwlk_w");
+  initlock(&rwlk->x, "rwlk_x");
+  initlock(&rwlk->y, "rwlk_y");
+  initlock(&rwlk->r, "rwlk_r");
+  initlock(&rwlk->z, "rwlk_z");
+  rwlk->readcount = 0;
+  rwlk->writecount = 0;
 }
 
 // Test rwspinlock implementation.
