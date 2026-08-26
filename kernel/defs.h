@@ -152,6 +152,8 @@ void            argaddr(int, uint64 *);
 int             fetchstr(uint64, char*, int);
 int             fetchaddr(uint64, uint64*);
 void            syscall();
+struct vma*     findvma(struct proc*, uint64);
+int             vmaalloc(uint64, int);
 
 // trap.c
 extern uint     ticks;
@@ -186,6 +188,7 @@ int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 int             ismapped(pagetable_t, uint64);
 uint64          vmfault(pagetable_t, uint64, int);
+void            vmaunmap(pagetable_t, uint64, uint64, struct vma*);
 #if defined(LAB_PGTBL) || defined(SOL_MMAP)
 void            vmprint(pagetable_t);
 #endif

@@ -5,8 +5,11 @@
 #include "riscv.h"
 #include "defs.h"
 #include "spinlock.h"
+#include "sleeplock.h"
 #include "proc.h"
 #include "fs.h"
+#include "file.h"
+#include "fcntl.h"
 
 /*
  * the kernel's page table.
@@ -483,4 +486,42 @@ ismapped(pagetable_t pagetable, uint64 va)
     return 1;
   }
   return 0;
+}
+
+// 释放mmap映射的页，根据PTE_D和MAP_SHARED判断是否将修改写回磁盘
+void vmaunmap(pagetable_t pagetable, uint64 va, uint64 nbytes, struct vma* v) {
+    uint64 a;
+    pte_t* pte;
+
+    for (a = va;a < va + nbytes;a += PGSIZE) {
+        if ((pte = walk(pagetable, a, 0)) == 0)     // 读取va对应pte
+            continue;
+
+        if ((*pte & PTE_V) == 0)
+            continue;
+
+        uint64 pa = PTE2PA(*pte);
+        if ((*pte & PTE_D) && (v->flags & MAP_SHARED)) {        // 将修改写回磁盘
+            uint64 off = v->offset + (a - v->vastart);          // 相对于文件开头的偏移
+            begin_op();
+            ilock(v->f->ip);
+
+            uint64 n = PGSIZE;
+            if (a + PGSIZE > v->vastart + v->sz)                // 最后一页可能不满一页
+                n = (v->vastart + v->sz) - a;
+
+            if (off >= v->f->ip->size)                          // 不能超出文件大小
+                n = 0;
+            else if (off + n > v->f->ip->size)
+                n = v->f->ip->size - off;
+
+            if (n > 0)
+                writei(v->f->ip, 0, pa, off, n);
+
+            iunlock(v->f->ip);
+            end_op();
+        }
+        kfree((void*)pa);
+        *pte = 0;
+    }
 }

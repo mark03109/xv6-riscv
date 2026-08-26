@@ -146,6 +146,10 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  for(int i = 0; i < NVMA; i++){
+    p->vmas[i].valid = 0;
+  }
+
   return p;
 }
 
@@ -285,6 +289,14 @@ kfork(void)
       np->ofile[i] = filedup(p->ofile[i]);
   np->cwd = idup(p->cwd);
 
+  for(int i = 0; i < NVMA; i++){
+    struct vma* v = &p->vmas[i];
+    if(v->valid){
+      np->vmas[i] = * v;
+      filedup(v->f);
+    }
+  }
+
   safestrcpy(np->name, p->name, sizeof(p->name));
 
   pid = np->pid;
@@ -327,6 +339,17 @@ kexit(int status)
 
   if(p == initproc)
     panic("init exiting");
+
+  // Write back dirty MAP_SHARED pages, unmap all vmas,
+  // and release their file references.
+  for(int i = 0; i < NVMA; i++){
+    struct vma *v = &p->vmas[i];
+    if(v->valid){
+      vmaunmap(p->pagetable, v->vastart, v->sz, v);
+      fileclose(v->f);
+      v->valid = 0;
+    }
+  }
 
   // Close all open files.
   for(int fd = 0; fd < NOFILE; fd++){
