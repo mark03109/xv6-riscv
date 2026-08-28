@@ -9,8 +9,6 @@
 #include "riscv.h"
 #include "defs.h"
 
-#define STEAL_PAGES 64 // most pages a cpu can steel from another
-
 void freerange(void *pa_start, void *pa_end);
 
 extern char end[]; // first address after kernel.
@@ -23,6 +21,8 @@ struct run {
 struct {
   struct spinlock lock;
   struct run *freelist;
+  struct run *tail;   // last page on the freelist; lets us steal a whole
+                      // list in O(1) without walking it while holding the lock
 } kmem[NCPU];
 
 char* kmem_names[NCPU] = {
@@ -50,8 +50,20 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
-    kfree(p);
+  // Distribute free pages round-robin across the per-CPU freelists so that
+  // no single CPU owns all of memory at boot.  If every page starts on one
+  // freelist (kfree() always frees to the boot CPU), the first allocations in
+  // test1 all hit that one freelist and contend on its lock.
+  int id = 0;
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE){
+    memset(p, 1, PGSIZE);
+    struct run *r = (struct run*)p;
+    r->next = kmem[id].freelist;
+    kmem[id].freelist = r;
+    if(r->next == 0)
+      kmem[id].tail = r;
+    id = (id + 1) % NCPU;
+  }
 }
 
 // Free the page of physical memory pointed at by pa,
@@ -76,76 +88,65 @@ kfree(void *pa)
   acquire(&kmem[id].lock);
   r->next = kmem[id].freelist;
   kmem[id].freelist = r;
+  if(r->next == 0)
+    kmem[id].tail = r;
   release(&kmem[id].lock);
+
   pop_off();
 }
 
 // Allocate one 4096-byte page of physical memory.
 // Returns a pointer that the kernel can use.
 // Returns 0 if the memory cannot be allocated.
-
-// void *
-// kalloc(void)
-// {
-//   struct run *r;
-
-//   acquire(&kmem.lock);
-//   r = kmem.freelist;
-//   if(r)
-//     kmem.freelist = r->next;
-//   release(&kmem.lock);
-
-//   if(r)
-//     memset((char*)r, 5, PGSIZE); // fill with junk
-//   return (void*)r;
-// }
-
 void *
 kalloc(void)
 {
-  struct run *r = 0;
+  struct run *r;
+
   push_off();
   int id = cpuid();
 
   acquire(&kmem[id].lock);
-  if(kmem[id].freelist){
-    r = kmem[id].freelist;
-    if(r)
-      kmem[id].freelist = r->next;
-    release(&kmem[id].lock);
+  r = kmem[id].freelist;
+  if(r){
+    kmem[id].freelist = r->next;
+    if(kmem[id].freelist == 0)
+      kmem[id].tail = 0;
   }
-  else{
-    // Our own freelist is empty. Drop our lock before touching anyone
-    // else's, so we never hold two kmem locks at once and cannot deadlock.
-    release(&kmem[id].lock);
+  release(&kmem[id].lock);
 
-    for(int i = 0; i < NCPU; i++){
-      if(i == id)
-        continue;
+  if(r == 0){
+    // Our own freelist is empty: steal another CPU's entire list in one
+    // O(1) step (no walking the list while holding its lock), keep one page,
+    // and splice the rest onto our own list.  We hold both locks at once, in
+    // index order to avoid deadlock, so the stolen pages are never briefly
+    // invisible; otherwise a concurrent kalloc could see every list empty and
+    // report a spurious out-of-memory failure.
+    for(int i = 1; i < NCPU; i++){
+      int other = (id + i) % NCPU;
+      int lo = id < other ? id : other;
+      int hi = id < other ? other : id;
+      acquire(&kmem[lo].lock);
+      acquire(&kmem[hi].lock);
 
-      struct run *stolen = 0, *tail = 0;
-
-      acquire(&kmem[i].lock);
-      if(kmem[i].freelist){
-        int counter = 1;
-        stolen = tail = kmem[i].freelist;
-        while(tail->next && counter++ < STEAL_PAGES){
-          tail = tail->next;
-        }
-        kmem[i].freelist = tail->next;
-        tail->next = 0;
+      r = kmem[other].freelist;
+      if(r){
+        struct run *tail = kmem[other].tail;
+        struct run *rest = r->next;
+        kmem[other].freelist = 0;
+        kmem[other].tail = 0;
+        r->next = 0;
+        // Our own list is empty here (only this CPU ever pushes to it, and
+        // interrupts are off), so the stolen remainder becomes our whole list.
+        kmem[id].freelist = rest;
+        kmem[id].tail = rest ? tail : 0;
       }
-      release(&kmem[i].lock);
 
-      if(stolen){
-        acquire(&kmem[id].lock);
-        tail->next = kmem[id].freelist; // splice, don't overwrite
-        kmem[id].freelist = stolen;
-        r = kmem[id].freelist;
-        kmem[id].freelist = r->next;
-        release(&kmem[id].lock);
+      release(&kmem[hi].lock);
+      release(&kmem[lo].lock);
+
+      if(r)
         break;
-      }
     }
   }
 
@@ -153,6 +154,6 @@ kalloc(void)
 
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
-  
+
   return (void*)r;
 }
