@@ -11,18 +11,14 @@ int toInt(char* digit, int end){
     return ret;
 }
 
-int 
-main(int argc, char* argv[]){
-    close(0);
-    char* filename = argv[1];
-    int fd = open(filename, O_RDWR);
-
+void
+process(int fd){
     const char seperators[8] = {'-','\r','\t','\n','.','/',',','\0'};
     char digit[512] = {'\0'};
     char buf[1];
     char seperator_flag = 0x01;
-    
-    for(;;){    
+
+    for(;;){
         int n = read(fd, buf, sizeof(buf));
         if(n < 0){
             fprintf(2,"read error\n");
@@ -63,6 +59,24 @@ main(int argc, char* argv[]){
                 }
             }
         }
+    }
+}
+
+int
+main(int argc, char* argv[]){
+    if(argc < 2){
+        fprintf(2, "Usage: sixfive file...\n");
+        exit(1);
+    }
+
+    for(int i = 1; i < argc; i++){
+        int fd = open(argv[i], O_RDONLY);
+        if(fd < 0){
+            fprintf(2, "sixfive: cannot open %s\n", argv[i]);
+            continue;
+        }
+        process(fd);
+        close(fd);
     }
     exit(0);
 }

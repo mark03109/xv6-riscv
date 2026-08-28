@@ -82,7 +82,7 @@ memdump(char *fmt, char *data)
         ret += (unsigned char)data[j+k];
       }
       j+=8;
-      printf("%p\n", (void*)ret);
+      printf("%x\n", (uint32)ret);
     }
     else if(fmt[i] == 'h'){
       short ret = 0;
