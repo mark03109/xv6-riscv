@@ -345,6 +345,9 @@ int uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       goto err;
     }
   }
+  // uvmcopy may have removed PTE_W from the parent's mappings. Flush
+  // stale TLB entries before the parent resumes on a shared page.
+  sfence_vma();
   return 0;
 
  err:
@@ -380,11 +383,8 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
       return -1;
   
     pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte & PTE_V) == 0) {
-      // lazily-allocated (or unmapped) page: allocate on demand.
-      if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
-        return -1;
-      }
+    if(pte == 0 || (*pte & (PTE_V | PTE_U)) != (PTE_V | PTE_U)) {
+      return -1;
     } else if(*pte & PTE_COW) {
       // copy-on-write page: copy it before writing.
       if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
@@ -516,6 +516,7 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
       return 0;
     memmove((void*)mem, (void*)pa, PGSIZE);
     *pte = PA2PTE(mem) | ((PTE_FLAGS(*pte) & ~PTE_COW) | PTE_W);
+    sfence_vma();
     kfree((void*)pa); // not truely free, just ref-1
     return mem;
   }
