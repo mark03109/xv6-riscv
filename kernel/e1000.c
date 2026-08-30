@@ -137,12 +137,17 @@ e1000_recv(void)
     if((rx_ring[index].status & E1000_RXD_STAT_DD) == 0)
       break;
     int len = rx_ring[index].length;
-    char *buf = (char* )rx_ring[index].addr;
-    net_rx(buf,len);
+    char *buf = (char *)rx_ring[index].addr;
 
     rx_ring[index].addr = (uint64)kalloc();
+    if(rx_ring[index].addr == 0)
+      panic("e1000_recv");
     rx_ring[index].status = 0;
     regs[E1000_RDT] = index;
+
+    // Return the descriptor before processing the packet so a burst cannot
+    // exhaust the receive ring while net_rx() runs.
+    net_rx(buf, len);
   }
   
   // Check for packets that have arrived from the e1000
